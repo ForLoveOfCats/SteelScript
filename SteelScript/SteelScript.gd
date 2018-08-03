@@ -54,7 +54,6 @@ func list_to_end(string, start):
 	return out
 
 func paren_parser(parent, string, index=0):
-	#print(string[index], string[index+1])
 	var opencount = 0
 	var carlist = []
 	var childlist = []
@@ -84,8 +83,10 @@ func paren_parser(parent, string, index=0):
 		return null
 
 	if len(list_to_end(string, index))-endex > 1 and index == 0:
-		ParseError('Parentheses terminated early')
-		return null
+		if string[endex+1] != '#':
+			print(string)
+			ParseError('Parentheses terminated early')
+			return null
 
 	var fullstr = ''
 	for car in carlist:
@@ -158,10 +159,15 @@ func exec_script(script):
 				break
 
 
-		elif line.substr(0,2) == 'if':
+		elif line.substr(0,3) == 'if(':
 			var paren_str = line.substr(2, len(line)-2)
-			if paren_str[len(paren_str)-1] == '{':
-				paren_str = paren_str.substr(0,len(line)-3)
+
+			var old_paren_str = paren_str
+			paren_str = ''
+			for car in old_paren_str:
+				if car == '{':
+					break
+				paren_str += car
 
 			var If = load_node('If')
 			parent.add_child(If)
@@ -199,6 +205,10 @@ func exec_script(script):
 			else:
 				break
 
+		else:
+			if line.substr(0,1) != '#' and line != '':
+				ParseError('Invalid line')
+
 
 	if self.successful_parse:
 		self.sroot.start()
@@ -208,11 +218,12 @@ func exec_script(script):
 
 var script = """
 var test_var = (42)
-var test_var = ((test_var)-(2))
-if ((test_var)==(40)){
+var test_var = ((test_var)-(2)) #dsfsdfsf
+if ((test_var)==(40)){ # test
 	api.print(test_var)
 }
-api.print(0)
+api.print(0) # ha ha ha
+#test
 """
 
 func _ready():
