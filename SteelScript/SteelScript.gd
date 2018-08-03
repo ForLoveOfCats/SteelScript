@@ -40,8 +40,13 @@ func ParseError(message):
 
 func strip_white(script):
 	var out = ''
+	var in_string = false
 	for index in len(script):
-		if script[index] != ' ' and script[index] != '	':
+		if script[index] == "'":
+			in_string = !in_string
+			out += script[index]
+			continue
+		if in_string or script[index] != ' ' and script[index] != '	' :
 			out += script[index]
 	return out
 
@@ -84,7 +89,6 @@ func paren_parser(parent, string, index=0):
 
 	if len(list_to_end(string, index))-endex > 1 and index == 0:
 		if string[endex+1] != '#':
-			print(string)
 			ParseError('Parentheses terminated early')
 			return null
 
@@ -105,6 +109,14 @@ func paren_parser(parent, string, index=0):
 	elif fullstr[0] in ['=', '>', '<', "!"] and fullstr[1] in ['=', '>', '<', "!"]:
 		node = load_node('Comparison')
 		node.Expression = fullstr
+
+	elif fullstr[0]  == "'":  # String
+		if fullstr[len(fullstr)-1] == "'":
+			node = load_node('String')
+			node.Contents = fullstr
+		else:
+			ParseError('Expected end of string')
+			return null
 
 	else:  # Must be a getvar
 		node = load_node('GetVar')
@@ -217,10 +229,11 @@ func exec_script(script):
 
 
 var script = """
+var str_var = ('Why hello there good sir! I did not see you there!')
 var test_var = (42)
 var test_var = ((test_var)-(2)) #dsfsdfsf
 if ((test_var)==(40)){ # test
-	api.print(test_var)
+	api.print(str_var)
 } # Dis is a comment
 api.print(0) # ha ha ha
 #test
