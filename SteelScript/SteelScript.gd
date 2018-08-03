@@ -180,7 +180,7 @@ func exec_script(script):
 			parent = If
 
 
-		elif line == '}':
+		elif line.substr(0,1) == '}':
 			parent = parent.get_parent()
 
 
@@ -221,7 +221,7 @@ var test_var = (42)
 var test_var = ((test_var)-(2)) #dsfsdfsf
 if ((test_var)==(40)){ # test
 	api.print(test_var)
-}
+} # Dis is a comment
 api.print(0) # ha ha ha
 #test
 """
