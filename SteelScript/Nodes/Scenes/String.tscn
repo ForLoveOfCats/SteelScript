@@ -2,7 +2,7 @@
 
 [ext_resource path="res://SteelScript/Nodes/Scripts/String.gd" type="Script" id=1]
 
-[node name="String" type="Node" index="0"]
+[node name="String" type="Node"]
 
 script = ExtResource( 1 )
 

@@ -118,6 +118,10 @@ func paren_parser(parent, string, index=0):
 			ParseError('Expected end of string')
 			return null
 
+	elif fullstr in ['true', 'false']:  # Boolean
+		node = load_node('Bool')
+		node.Boolean = fullstr == 'true'
+
 	else:  # Must be a getvar
 		node = load_node('GetVar')
 		node.Variable = fullstr
@@ -157,6 +161,10 @@ func exec_script(script):
 					equaldex = cindex+3
 					break
 				SetVar.Variable += line.substr(3,len(line)-3)[cindex]
+
+			if SetVar.Variable in ['true', 'false']:
+				ParseError('Cannot name variable "true" or "false"')
+				break
 
 			if equaldex == null:
 				ParseError('Missing equal sign in variable declaration')
@@ -232,9 +240,15 @@ var script = """
 var str_var = ('Why hello there good sir! I did not see you there!')
 var test_var = (42)
 var test_var = ((test_var)-(2)) #dsfsdfsf
+
 if ((test_var)==(40)){ # test
 	api.print(str_var)
 } # Dis is a comment
+
+if (true){
+	api.print('Booleans are live!')
+}
+
 api.print(0) # ha ha ha
 #test
 """
