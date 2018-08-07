@@ -1,7 +1,7 @@
 extends Node
 
 var sroot = null
-var scoop = null
+var line_number = null
 
 func execute():
 	pass

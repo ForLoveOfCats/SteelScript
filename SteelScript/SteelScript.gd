@@ -1,6 +1,6 @@
 extends Node
 
-const DebugMessages = false
+const InvalidNames = ['true', 'false']
 
 var API = null
 
@@ -26,15 +26,13 @@ func call_api(call, args):
 func load_node(node):
 	node = load(self.get_script().get_path().get_base_dir()+"/Nodes/Scenes/"+node+".tscn").instance()
 	node.sroot = self.sroot
+	node.line_number = current_line
 	return node
 
 
-func Message(message):
-	if DebugMessages:
-		print(message)
 
 func ParseError(message):
-	print('Error: '+message+' @ line ' + str(self.current_line+1))
+	print('ParseError: ' + message + ' @ line ' + str(self.current_line+1))
 	self.successful_parse = false
 
 
@@ -50,6 +48,25 @@ func strip_white(script):
 			out += script[index]
 	return out
 
+func remove_open_curly(string):
+	var out = ''
+	for car in string:
+		if car == '{':
+			continue
+		out += car
+	return out
+
+func prepare_paren_str(string):
+	var out = ''
+	var in_string = false
+	for car in string:
+		if car == "'":
+			in_string = !in_string
+
+		if car == '#' and not in_string:
+			break
+		out += car
+	return out
 
 func list_to_end(string, start):
 	var out = []
@@ -59,21 +76,27 @@ func list_to_end(string, start):
 	return out
 
 func paren_parser(parent, string, index=0):
+	string = prepare_paren_str(string)
+
 	var opencount = 0
 	var carlist = []
 	var childlist = []
 
 	var endex = 0
+	var in_string = false
 	for cindex in list_to_end(string, index):
 		var car = string[cindex]
 
-		if car == '(':
+		if car == "'":
+			in_string = !in_string
+
+		elif car == '(' and not in_string:
 			opencount += 1
 			if opencount > 1:
 				childlist.append(paren_parser(parent, string, cindex))
 			continue
 
-		if car == ')':
+		elif car == ')' and not in_string:
 			opencount -= 1
 			if opencount <= 0:
 				endex = cindex
@@ -83,18 +106,25 @@ func paren_parser(parent, string, index=0):
 		if opencount <= 1:
 			carlist.append([car, opencount])
 
+	if in_string:
+		ParseError('Expected string end before line end')
+		return null
+
 	if opencount > 0:
 		ParseError('Unclosed parentheses')
 		return null
 
 	if len(list_to_end(string, index))-endex > 1 and index == 0:
-		if string[endex+1] != '#':
-			ParseError('Parentheses terminated early')
-			return null
+		ParseError('Invalid characters following parentheses')
+		return null
 
 	var fullstr = ''
 	for car in carlist:
 		fullstr += car[0]
+
+	if fullstr == '':
+		ParseError('Empty parentheses pair')
+		return null
 
 	# Begin parsing!
 	var node = null
@@ -162,14 +192,17 @@ func exec_script(script):
 					break
 				SetVar.Variable += line.substr(3,len(line)-3)[cindex]
 
-			if SetVar.Variable in ['true', 'false']:
-				ParseError('Cannot name variable "true" or "false"')
+			if SetVar.Variable == '':
+				ParseError('Variable name required in variable declaration')
+				break
+
+			if SetVar.Variable in InvalidNames:
+				ParseError('Invalid variable name "' + SetVar.Variable + '" in variable declaration')
 				break
 
 			if equaldex == null:
 				ParseError('Missing equal sign in variable declaration')
 				break
-
 
 			parent.add_child(SetVar)
 			var paren = paren_parser(SetVar, line.substr(equaldex+1,len(line)-equaldex+1))
@@ -180,19 +213,10 @@ func exec_script(script):
 
 
 		elif line.substr(0,3) == 'if(':
-			var paren_str = line.substr(2, len(line)-2)
-
-			var old_paren_str = paren_str
-			paren_str = ''
-			for car in old_paren_str:
-				if car == '{':
-					break
-				paren_str += car
-
 			var If = load_node('If')
 			parent.add_child(If)
 
-			var paren = paren_parser(If, paren_str)
+			var paren = paren_parser(If, remove_open_curly(line.substr(2, len(line)-2)))
 			if paren != null:
 				If.add_child(paren)
 			else:
@@ -202,6 +226,9 @@ func exec_script(script):
 
 		elif line.substr(0,1) == '}':
 			parent = parent.get_parent()
+			if len(line) > 1:
+				if line.substr(1,1) != '#':
+					ParseError('Invalid characters following }')
 
 
 		elif line.substr(0,4) == 'api.':
@@ -217,6 +244,9 @@ func exec_script(script):
 				else:
 					APICall.Call += car
 
+			if APICall.Call == '':
+				ParseError('Missing call name in API call')
+
 			parent.add_child(APICall)
 
 			var paren = paren_parser(APICall, line.substr(parendex+1,len(line)-parendex+1))
@@ -229,6 +259,8 @@ func exec_script(script):
 			if line.substr(0,1) != '#' and line != '':
 				ParseError('Invalid line')
 
+	if parent != sroot:
+		ParseError('Block left unclosed from line ' + str(parent.line_number+1))
 
 	if self.successful_parse:
 		self.sroot.start()
@@ -246,7 +278,7 @@ if ((test_var)==(40)){ # test
 } # Dis is a comment
 
 if (true){
-	api.print('Booleans are live!')
+	api.print('Booleans are live! #Progress!')
 }
 
 api.print(0) # ha ha ha
